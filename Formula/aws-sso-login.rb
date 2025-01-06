@@ -8,7 +8,7 @@ class AwsSsoLogin < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", *std_go_args(output: bin/"aws-sso-login"), "./cmd/aws-sso-login"
+    system "go", "build", *std_go_args(output: bin/"aws-sso-login"), "./src/cmd/bin/main.go"
   end
 
   test do
