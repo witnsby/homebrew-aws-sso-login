@@ -1,0 +1,9 @@
+# JetBrains IDE
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# temp folder
+/tmp
