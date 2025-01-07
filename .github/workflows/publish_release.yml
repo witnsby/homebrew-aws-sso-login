@@ -25,17 +25,7 @@ jobs:
       - name: Run
         run: make run
 
-      - name: Check for changes in Formula/aws-sso-login.rb
-        id: check
-        run: |
-          if git diff --quiet HEAD -- Formula/aws-sso-login.rb; then
-            echo "no_changes=true" >> $GITHUB_ENV
-          else
-            echo "no_changes=false" >> $GITHUB_ENV
-        continue-on-error: false
-
       - name: Commit and push changes
-        if: env.no_changes == 'false'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
