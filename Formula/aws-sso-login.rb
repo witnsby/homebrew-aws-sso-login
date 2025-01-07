@@ -1,14 +1,33 @@
 class AwsSsoLogin < Formula
   desc "CLI that streamlines AWS SSO authentication and credentials management"
   homepage "https://github.com/witnsby/aws-sso-login"
-  url "https://github.com/witnsby/aws-sso-login/archive/refs/tags/v0.0.7.tar.gz"
-  sha256 "ef6868d1285293fe06192c6125833f35595cd27e1a0bef9c5c5c74ff64ad675f"
+  version "0.0.7"
   license "Apache-2.0"
 
-  depends_on "go" => :build
+  on_macos do
+    on_intel do
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_amd64"
+      sha256 "f67fd7f9ac6d1e74c03040c4a06e697ea40f17c0413001e47e97a072e69489d4"
+    end
+    on_arm do
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_arm64"
+      sha256 "1a03ca7a05c92da418b6f9358d56ac213db44eb7a5ad7a2cc35ddac1a7ceb7c0"
+    end
+  end
+
+  on_linux do
+    on_intel do
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_linux_amd64"
+      sha256 "bb71e8171b5fd3db84939f90a023827c44b6a0a4ca12edad09291363147ab84f"
+    end
+    on_arm do
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_linux_arm64"
+      sha256 "0aea07e02203919828bbbaae17198b9439a3bf2dec5c7175a553c83150fa8230"
+    end
+  end
 
   def install
-    system "go", "build", *std_go_args(output: bin/"aws-sso-login"), "./src/cmd/bin/main.go"
+    bin.install File.basename(stable.url) => "aws-sso-login"
   end
 
   test do
