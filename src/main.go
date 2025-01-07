@@ -9,76 +9,73 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 )
 
-// Constants
 const (
-	repo        = "witnsby/aws-sso-login"      // GitHub repository
-	formulaPath = "./Formula/aws-sso-login.rb" // Formula file path
-	baseURL     = "https://github.com/%s/archive/refs/tags/%s.tar.gz"
-	apiURL      = "https://api.github.com/repos/%s/releases/latest"
+	repo             = "witnsby/aws-sso-login"
+	formulaPath      = "./Formula/aws-sso-login.rb"
+	latestReleaseAPI = "https://api.github.com/repos/%s/releases/latest"
 )
 
-// Struct to parse GitHub API response
 type Release struct {
-	TagName string `json:"tag_name"`
+	TagName string  `json:"tag_name"`
+	Assets  []Asset `json:"assets"`
 }
 
-// Fetch the latest release tag using GitHub API
-func fetchLatestReleaseTag(repo string) (string, error) {
-	url := fmt.Sprintf(apiURL, repo)
+type Asset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+func fetchLatestRelease(repo string) (*Release, error) {
+	url := fmt.Sprintf(latestReleaseAPI, repo)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to fetch release: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch release: %s", resp.Status)
 	}
 
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if release.TagName == "" {
-		return "", errors.New("no tag name found")
+		return nil, errors.New("no tag_name in release")
+	}
+	if len(release.Assets) == 0 {
+		return nil, errors.New("no assets in release")
 	}
 
-	return release.TagName, nil
+	return &release, nil
 }
 
-// Download tarball file
-func downloadTarball(repo, tag, outputPath string) (string, error) {
-	url := fmt.Sprintf(baseURL, repo, tag)
+func downloadFile(url, outputPath string) error {
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download tarball: %s", resp.Status)
+		return fmt.Errorf("failed to download file: %s", resp.Status)
 	}
 
-	file, err := os.Create(outputPath)
+	out, err := os.Create(outputPath)
 	if err != nil {
-		return "", err
+		return err
 	}
-	defer file.Close()
+	defer out.Close()
 
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return url, nil
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
-// Generate SHA256 checksum for a file
 func generateSHA256(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -87,73 +84,122 @@ func generateSHA256(filePath string) (string, error) {
 	defer file.Close()
 
 	hash := sha256.New()
-	_, err = io.Copy(hash, file)
-	if err != nil {
+	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
-
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// Update formula file: replace URL and SHA256
-func updateFormula(filePath, url, sha256, version string) error {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return err
+func updateFormula(filePath, version string, binaries map[string]string) error {
+	getVals := func(key string) (url, sha string) {
+		val, ok := binaries[key]
+		if !ok {
+			return "", ""
+		}
+		parts := strings.SplitN(val, "#", 2)
+		if len(parts) != 2 {
+			return "", ""
+		}
+		return parts[0], parts[1]
 	}
 
-	text := string(content)
+	macIntelURL, macIntelSHA := getVals("darwin_amd64")
+	macArmURL, macArmSHA := getVals("darwin_arm64")
+	linuxIntelURL, linuxIntelSHA := getVals("linux_amd64")
+	linuxArmURL, linuxArmSHA := getVals("linux_arm64")
 
-	// Replace URL
-	re := regexp.MustCompile(`url ".*?"`)
-	text = re.ReplaceAllString(text, fmt.Sprintf(`url "%s"`, url))
+	formula := fmt.Sprintf(`class AwsSsoLogin < Formula
+  desc "CLI that streamlines AWS SSO authentication and credentials management"
+  homepage "https://github.com/witnsby/aws-sso-login"
+  version "%s"
+  license "Apache-2.0"
 
-	// Replace SHA256
-	re = regexp.MustCompile(`sha256 ".*?"`)
-	text = re.ReplaceAllString(text, fmt.Sprintf(`sha256 "%s"`, sha256))
+  on_macos do
+    on_intel do
+      url "%s"
+      sha256 "%s"
+    end
+    on_arm do
+      url "%s"
+      sha256 "%s"
+    end
+  end
 
-	// Replace version (if exists in formula)
-	re = regexp.MustCompile(`version ".*?"`)
-	text = re.ReplaceAllString(text, fmt.Sprintf(`version "%s"`, strings.TrimPrefix(version, "v")))
+  on_linux do
+    on_intel do
+      url "%s"
+      sha256 "%s"
+    end
+    on_arm do
+      url "%s"
+      sha256 "%s"
+    end
+  end
 
-	err = os.WriteFile(filePath, []byte(text), 0644)
-	if err != nil {
-		return err
-	}
+  def install
+    bin.install File.basename(stable.url) => "aws-sso-login"
+  end
 
-	return nil
+  test do
+    assert_match version.to_s, shell_output("#{bin}/aws-sso-login version")
+  end
+end
+`,
+		strings.TrimPrefix(version, "v"),
+		macIntelURL, macIntelSHA,
+		macArmURL, macArmSHA,
+		linuxIntelURL, linuxIntelSHA,
+		linuxArmURL, linuxArmSHA,
+	)
+
+	return os.WriteFile(filePath, []byte(formula), 0644)
 }
 
 func main() {
-	fmt.Println("Fetching latest release tag...")
-	tag, err := fetchLatestReleaseTag(repo)
+	release, err := fetchLatestRelease(repo)
 	if err != nil {
-		fmt.Println("Error fetching release tag:", err)
+		fmt.Println("Error:", err)
 		return
 	}
-	fmt.Println("Latest tag:", tag)
 
-	tempFilePath := "temp.tar.gz"
-
-	fmt.Println("Downloading tarball...")
-	tarballURL, err := downloadTarball(repo, tag, tempFilePath)
-	if err != nil {
-		fmt.Println("Error downloading tarball:", err)
-		return
+	wanted := []string{
+		"aws-sso-login_darwin_amd64",
+		"aws-sso-login_darwin_arm64",
+		"aws-sso-login_linux_amd64",
+		"aws-sso-login_linux_arm64",
 	}
-	defer os.Remove(tempFilePath)
 
-	fmt.Println("Generating SHA256 checksum...")
-	sha256, err := generateSHA256(tempFilePath)
-	if err != nil {
-		fmt.Println("Error generating SHA256:", err)
-		return
+	binaries := make(map[string]string)
+
+	for _, asset := range release.Assets {
+		for _, w := range wanted {
+			if asset.Name == w {
+				key := strings.TrimPrefix(w, "aws-sso-login_")
+				tmpFile := "./" + asset.Name
+				if err := downloadFile(asset.BrowserDownloadURL, tmpFile); err != nil {
+					fmt.Printf("Error downloading %s: %v\n", asset.Name, err)
+					return
+				}
+				defer os.Remove(tmpFile)
+
+				sum, err := generateSHA256(tmpFile)
+				if err != nil {
+					fmt.Printf("Error generating SHA256 for %s: %v\n", asset.Name, err)
+					return
+				}
+				binaries[key] = asset.BrowserDownloadURL + "#" + sum
+			}
+		}
 	}
-	fmt.Println("SHA256:", sha256)
 
-	fmt.Println("Updating formula...")
-	err = updateFormula(formulaPath, tarballURL, sha256, tag)
-	if err != nil {
+	for _, w := range wanted {
+		key := strings.TrimPrefix(w, "aws-sso-login_")
+		if _, ok := binaries[key]; !ok {
+			fmt.Printf("Warning: %s not found in release assets\n", w)
+		}
+	}
+
+	if err := updateFormula(formulaPath, release.TagName, binaries); err != nil {
 		fmt.Println("Error updating formula:", err)
 		return
 	}
