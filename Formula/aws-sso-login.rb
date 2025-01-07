@@ -1,28 +1,28 @@
 class AwsSsoLogin < Formula
   desc "CLI that streamlines AWS SSO authentication and credentials management"
   homepage "https://github.com/witnsby/aws-sso-login"
-  version "0.0.7"
+  version "0.0.8"
   license "Apache-2.0"
 
   on_macos do
     on_intel do
-      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_amd64"
-      sha256 "f67fd7f9ac6d1e74c03040c4a06e697ea40f17c0413001e47e97a072e69489d4"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.8/aws-sso-login_darwin_amd64"
+      sha256 "63e34dc09fbd244b798824a9921fb564ef6051f16cd041d2b58b654e1bad6ccf"
     end
     on_arm do
-      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_arm64"
-      sha256 "1a03ca7a05c92da418b6f9358d56ac213db44eb7a5ad7a2cc35ddac1a7ceb7c0"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.8/aws-sso-login_darwin_arm64"
+      sha256 "f8fe0da63c90ef068f6e3964b426fc5681c596e1d99f8e6abbd429b97b21aa6c"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_linux_amd64"
-      sha256 "bb71e8171b5fd3db84939f90a023827c44b6a0a4ca12edad09291363147ab84f"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.8/aws-sso-login_linux_amd64"
+      sha256 "9663cce8b120cc38a097f223b27c273759c3a573a02bcf8036651417b1e45d14"
     end
     on_arm do
-      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_linux_arm64"
-      sha256 "0aea07e02203919828bbbaae17198b9439a3bf2dec5c7175a553c83150fa8230"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.8/aws-sso-login_linux_arm64"
+      sha256 "62741595d59f74c7f873abc534e32a32016520b8ab5604522de7025a01816677"
     end
   end
 
