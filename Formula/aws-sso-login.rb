@@ -6,11 +6,11 @@ class AwsSsoLogin < Formula
 
   on_macos do
     on_intel do
-      url "https://github.com/witnsby/aws-sso-login/releases/downloadsso-login_darwin_amd64"
-      sha256 "f67fd7f9ac6d189d4"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_amd64"
+      sha256 "f67fd7f9ac6d1e74c03040c4a06e697ea40f17c0413001e47e97a072e69489d4"
     end
     on_arm do
-      url "https://github.com/witnsby/aws-sso-log7/aws-sso-login_darwin_arm64"
+      url "https://github.com/witnsby/aws-sso-login/releases/download/v0.0.7/aws-sso-login_darwin_arm64"
       sha256 "1a03ca7a05c92da418b6f9358d56ac213db44eb7a5ad7a2cc35ddac1a7ceb7c0"
     end
   end
