@@ -1,5 +1,8 @@
 name: Fetch Release
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
@@ -13,6 +16,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -33,4 +38,4 @@ jobs:
           git commit -m "Update Formula/aws-sso-login.rb via CI/CD pipeline"
           git push origin main
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
