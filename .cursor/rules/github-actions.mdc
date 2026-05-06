@@ -1,0 +1,53 @@
+---
+description: GitHub Actions workflow conventions
+globs: .github/workflows/**/*.yml,.github/workflows/**/*.yaml
+alwaysApply: false
+---
+
+# GitHub Actions Conventions
+
+## Workflow Purpose
+
+`build_release.yaml` — runs on every push to `main` and on `workflow_dispatch`.
+It executes the Go updater (`make run`) and commits the refreshed formula back to `main`.
+
+## Permissions
+
+Grant only the minimum required permissions. The formula-update workflow needs:
+```yaml
+permissions:
+  contents: write  # to push the updated formula
+```
+Do not add `packages`, `id-token`, or `pull-requests` unless there is a specific need.
+
+## Pinning Actions
+
+Pin third-party actions to a full commit SHA for security, or at minimum to a major version tag:
+```yaml
+# ✅ major version tag (acceptable)
+uses: actions/checkout@v5
+
+# ✅ full SHA (preferred for security)
+uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+```
+
+## Go Setup
+
+Always specify the exact Go version to match `go.mod`:
+```yaml
+- uses: actions/setup-go@v5
+  with:
+    go-version: "1.23.4"
+```
+
+## Commit Bot Identity
+
+The auto-commit step must use a bot identity, not a personal account:
+```yaml
+git config user.name "GitHub Actions"
+git config user.email "actions@github.com"
+```
+
+## Secrets
+
+Use `${{ secrets.GITHUB_TOKEN }}` for repo-scoped operations. Never hard-code tokens.

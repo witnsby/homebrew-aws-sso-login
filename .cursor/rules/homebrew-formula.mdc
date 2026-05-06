@@ -1,0 +1,50 @@
+---
+description: Rules for the Homebrew formula file
+globs: Formula/**/*.rb
+alwaysApply: false
+---
+
+# Homebrew Formula (`Formula/aws-sso-login.rb`)
+
+## This File Is Auto-Generated
+
+`Formula/aws-sso-login.rb` is written entirely by `src/main.go`. **Do not edit it by hand.**
+
+To update the formula to the latest release:
+```bash
+make run
+```
+
+## Formula Structure
+
+The formula uses `on_macos` / `on_linux` + `on_intel` / `on_arm` blocks to declare
+per-platform binary URLs and SHA256 checksums. Each block must have exactly:
+- `url` — direct download link to the binary on GitHub Releases
+- `sha256` — hex SHA256 of the downloaded binary
+
+## Install Block
+
+```ruby
+def install
+  bin.install File.basename(stable.url) => "aws-sso-login"
+end
+```
+
+The binary is renamed to `aws-sso-login` regardless of the source filename.
+
+## Test Block
+
+```ruby
+test do
+  assert_match version.to_s, shell_output("#{bin}/aws-sso-login version")
+end
+```
+
+The test must pass with `brew test aws-sso-login` on every supported platform.
+
+## Validation Checklist (after `make run`)
+
+- [ ] `version` matches the latest GitHub tag (without leading `v`)
+- [ ] All four platform blocks have non-empty `url` and `sha256`
+- [ ] SHA256 values are 64-character lowercase hex strings
+- [ ] `brew audit --strict Formula/aws-sso-login.rb` passes locally
