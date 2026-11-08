@@ -1,0 +1,41 @@
+---
+description: Go conventions for the formula updater script
+globs: src/**/*.go
+alwaysApply: false
+---
+
+# Go Updater (`src/main.go`)
+
+## Purpose
+
+Fetches the latest `witnsby/aws-sso-login` release from the GitHub API, downloads the four platform binaries, computes SHA256 checksums, and writes a fresh `Formula/aws-sso-login.rb`.
+
+## Patterns to Follow
+
+- Keep all logic in `src/main.go` — no additional files or packages.
+- Use only the Go standard library (`net/http`, `crypto/sha256`, `encoding/json`, `os`, `fmt`, etc.).
+- All HTTP calls must check the response status code and return a descriptive `error`.
+- Temp files must be deferred for removal with `defer os.Remove(tmpFile)`.
+- The formula template is rendered with `fmt.Sprintf` — keep it as a single string constant so the output is deterministic.
+
+## Adding a New Platform
+
+1. Add the binary name to the `wanted` slice in `main()`.
+2. Add a corresponding key to the `binaries` map.
+3. Add a `getVals("os_arch")` call inside `updateFormula` and include it in the `fmt.Sprintf` template.
+
+## Error Handling
+
+```go
+// ✅ GOOD — descriptive, wrapped errors
+if resp.StatusCode != http.StatusOK {
+    return nil, fmt.Errorf("failed to fetch release: %s", resp.Status)
+}
+
+// ❌ BAD — silent discard
+if err != nil { return }
+```
+
+## Testing
+
+Write table-driven tests in `src/main_test.go` using `net/http/httptest` to mock the GitHub API and file downloads.
