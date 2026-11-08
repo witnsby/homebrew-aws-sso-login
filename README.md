@@ -33,15 +33,19 @@ brew untap witnsby/aws-sso-login
 
 ## How It Works
 
-The formula in `Formula/aws-sso-login.rb` is **automatically kept up to date** by a Go script (`src/main.go`) that runs on every push to `main` via GitHub Actions:
+The formula in `Formula/aws-sso-login.rb` is **automatically kept up to date** by a Go script (`src/main.go`) that runs via GitHub Actions on every push to `main`, once a day on a schedule, and on manual dispatch:
 
 1. Fetches the latest release from the [upstream repository](https://github.com/witnsby/aws-sso-login).
 2. Downloads each platform binary.
 3. Computes the SHA256 checksum for each binary.
 4. Rewrites the formula with the new version, URLs, and checksums.
-5. Commits and pushes the updated formula back to `main`.
+5. Commits and pushes the updated formula back to `main` (skipped when the formula is already current).
 
-You do not need to open a PR to update the formula — the CI pipeline handles it automatically.
+You do not need to open a PR to update the formula — the CI pipeline handles it automatically. A new upstream release is picked up by the next scheduled run; to publish it right away, run the workflow manually:
+
+```bash
+gh workflow run publish_release.yml -R witnsby/homebrew-aws-sso-login
+```
 
 ## Development
 
