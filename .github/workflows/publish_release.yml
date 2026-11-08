@@ -8,6 +8,13 @@ on:
   push:
     branches:
       - main
+  # Pick up new upstream releases without a manual push or dispatch.
+  schedule:
+    - cron: "17 6 * * *"
+
+concurrency:
+  group: fetch-release
+  cancel-in-progress: false
 
 jobs:
   get-release:
@@ -32,6 +39,10 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          if git diff --quiet -- Formula/aws-sso-login.rb; then
+            echo "Formula is already up to date; nothing to commit."
+            exit 0
+          fi
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Formula/aws-sso-login.rb

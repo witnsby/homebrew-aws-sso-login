@@ -8,8 +8,10 @@ alwaysApply: false
 
 ## Workflow Purpose
 
-`build_release.yaml` — runs on every push to `main` and on `workflow_dispatch`.
-It executes the Go updater (`make run`) and commits the refreshed formula back to `main`.
+- `publish_release.yml` ("Fetch Release") — runs on every push to `main`, daily on a schedule, and on `workflow_dispatch`.
+  It executes the Go updater (`make run`) and commits the refreshed formula back to `main` only when the formula changed.
+  The commit step must stay a no-op (exit 0) when there is nothing to commit.
+- `build_release.yaml` ("Build Release") — runs on pull requests to `main`: `make install-deps`, `make tests`, `make build`.
 
 ## Permissions
 

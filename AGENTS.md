@@ -19,8 +19,8 @@ The repo has two responsibilities:
 ├── .github/
 │   ├── dependabot.yml
 │   └── workflows/
-│       ├── build_release.yaml  # Runs the Go updater and commits the updated formula
-│       └── publish_release.yml
+│       ├── build_release.yaml  # PR check: install deps, run tests, build the updater
+│       └── publish_release.yml # "Fetch Release": runs the updater and commits the formula
 ├── Makefile
 ├── go.mod
 └── README.md
@@ -43,10 +43,14 @@ make run        # go run ./src/main.go
 
 ### CI/CD
 
-`build_release.yaml` triggers on every push to `main` and on `workflow_dispatch`. It:
+`publish_release.yml` ("Fetch Release") triggers on every push to `main`, daily on a schedule, and on `workflow_dispatch`. It:
 1. Checks out the repo.
 2. Runs `make run` (the Go updater).
-3. Commits and pushes the updated formula back to `main`.
+3. If the formula changed, commits and pushes it back to `main`; otherwise exits successfully without committing.
+
+The schedule is what picks up new upstream releases: tagging a release in `witnsby/aws-sso-login` does not trigger this repo. To publish a release immediately, run the workflow manually (`gh workflow run publish_release.yml -R witnsby/homebrew-aws-sso-login`).
+
+`build_release.yaml` ("Build Release") runs on pull requests to `main`: it installs dependencies, runs `make tests` and `make build`. It does not touch the formula.
 
 ### Makefile Targets
 
