@@ -8,15 +8,27 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
 
 const (
-	repo             = "witnsby/aws-sso-login"
-	formulaPath      = "./Formula/aws-sso-login.rb"
-	latestReleaseAPI = "https://api.github.com/repos/%s/releases/latest"
+	repo        = "witnsby/aws-sso-login"
+	formulaPath = "./Formula/aws-sso-login.rb"
+	githubAPI   = "https://api.github.com"
+	// releaseTagEnv names the release to package; empty means the latest
+	// release. The Fetch Release workflow sets it from its "tag" input.
+	releaseTagEnv = "RELEASE_TAG"
 )
+
+// wantedAssets are the release binaries the formula installs.
+var wantedAssets = []string{
+	"aws-sso-login_darwin_amd64",
+	"aws-sso-login_darwin_arm64",
+	"aws-sso-login_linux_amd64",
+	"aws-sso-login_linux_arm64",
+}
 
 type Release struct {
 	TagName string  `json:"tag_name"`
@@ -28,31 +40,76 @@ type Asset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-func fetchLatestRelease(repo string) (*Release, error) {
-	url := fmt.Sprintf(latestReleaseAPI, repo)
-	resp, err := http.Get(url)
+// releaseURL returns the GitHub API URL of the release with the given tag,
+// or of the latest release when tag is empty.
+func releaseURL(apiBase, repo, tag string) string {
+	base := strings.TrimRight(apiBase, "/") + "/repos/" + repo + "/releases/"
+	if tag == "" {
+		return base + "latest"
+	}
+	return base + "tags/" + url.PathEscape(tag)
+}
+
+// fetchRelease fetches the release with the given tag, or the latest release
+// when tag is empty.
+func fetchRelease(apiBase, repo, tag string) (*Release, error) {
+	name := tag
+	if name == "" {
+		name = "latest"
+	}
+	resp, err := http.Get(releaseURL(apiBase, repo, tag))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch release %s of %s: %w", name, repo, err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("release %s not found in %s", name, repo)
+	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch release: %s", resp.Status)
+		return nil, fmt.Errorf("fetch release %s of %s: %s", name, repo, resp.Status)
 	}
 
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode release %s of %s: %w", name, repo, err)
 	}
 
 	if release.TagName == "" {
 		return nil, errors.New("no tag_name in release")
 	}
+	if tag != "" && release.TagName != tag {
+		return nil, fmt.Errorf("asked for release %s, got %s", tag, release.TagName)
+	}
 	if len(release.Assets) == 0 {
-		return nil, errors.New("no assets in release")
+		return nil, fmt.Errorf("release %s has no assets", release.TagName)
 	}
 
 	return &release, nil
+}
+
+// selectAssets returns the wanted binaries of the release by name and fails
+// when any of them is missing, so the formula is never written with an
+// empty URL.
+func selectAssets(release *Release) (map[string]Asset, error) {
+	byName := make(map[string]Asset, len(release.Assets))
+	for _, a := range release.Assets {
+		byName[a.Name] = a
+	}
+	selected := make(map[string]Asset, len(wantedAssets))
+	var missing []string
+	for _, w := range wantedAssets {
+		a, ok := byName[w]
+		if !ok {
+			missing = append(missing, w)
+			continue
+		}
+		selected[w] = a
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("release %s lacks %s", release.TagName, strings.Join(missing, ", "))
+	}
+	return selected, nil
 }
 
 func downloadFile(url, outputPath string) error {
@@ -155,54 +212,41 @@ end
 	return os.WriteFile(filePath, []byte(formula), 0644)
 }
 
-func main() {
-	release, err := fetchLatestRelease(repo)
+func run() error {
+	release, err := fetchRelease(githubAPI, repo, os.Getenv(releaseTagEnv))
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
+	}
+	assets, err := selectAssets(release)
+	if err != nil {
+		return err
 	}
 
-	wanted := []string{
-		"aws-sso-login_darwin_amd64",
-		"aws-sso-login_darwin_arm64",
-		"aws-sso-login_linux_amd64",
-		"aws-sso-login_linux_arm64",
-	}
-
-	binaries := make(map[string]string)
-
-	for _, asset := range release.Assets {
-		for _, w := range wanted {
-			if asset.Name == w {
-				key := strings.TrimPrefix(w, "aws-sso-login_")
-				tmpFile := "./" + asset.Name
-				if err := downloadFile(asset.BrowserDownloadURL, tmpFile); err != nil {
-					fmt.Printf("Error downloading %s: %v\n", asset.Name, err)
-					return
-				}
-				defer os.Remove(tmpFile)
-
-				sum, err := generateSHA256(tmpFile)
-				if err != nil {
-					fmt.Printf("Error generating SHA256 for %s: %v\n", asset.Name, err)
-					return
-				}
-				binaries[key] = asset.BrowserDownloadURL + "#" + sum
-			}
+	binaries := make(map[string]string, len(assets))
+	for name, asset := range assets {
+		key := strings.TrimPrefix(name, "aws-sso-login_")
+		tmpFile := "./" + asset.Name
+		if err := downloadFile(asset.BrowserDownloadURL, tmpFile); err != nil {
+			return fmt.Errorf("download %s: %w", asset.Name, err)
 		}
-	}
-
-	for _, w := range wanted {
-		key := strings.TrimPrefix(w, "aws-sso-login_")
-		if _, ok := binaries[key]; !ok {
-			fmt.Printf("Warning: %s not found in release assets\n", w)
+		sum, err := generateSHA256(tmpFile)
+		os.Remove(tmpFile)
+		if err != nil {
+			return fmt.Errorf("SHA256 of %s: %w", asset.Name, err)
 		}
+		binaries[key] = asset.BrowserDownloadURL + "#" + sum
 	}
 
 	if err := updateFormula(formulaPath, release.TagName, binaries); err != nil {
-		fmt.Println("Error updating formula:", err)
-		return
+		return fmt.Errorf("update formula: %w", err)
 	}
+	fmt.Printf("Formula updated to %s.\n", release.TagName)
+	return nil
+}
 
-	fmt.Println("Formula updated successfully!")
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
 }

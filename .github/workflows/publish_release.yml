@@ -1,10 +1,18 @@
 name: Fetch Release
+run-name: Fetch Release ${{ inputs.tag || 'latest' }}
 
 permissions:
   contents: write
 
 on:
+  # witnsby/aws-sso-login starts this with the new tag after it publishes a
+  # release. Without a tag, the latest release is used.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag of witnsby/aws-sso-login (vX.Y.Z); empty for the latest release
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -35,6 +43,8 @@ jobs:
         run: make install-deps
 
       - name: Run
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: make run
 
       - name: Commit and push changes
@@ -46,7 +56,8 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Formula/aws-sso-login.rb
-          git commit -m "Update Formula/aws-sso-login.rb via CI/CD pipeline"
+          version="$(sed -n 's/^  version "\(.*\)"$/\1/p' Formula/aws-sso-login.rb)"
+          git commit -m "Update Formula/aws-sso-login.rb to v${version} via CI/CD pipeline"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

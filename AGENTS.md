@@ -31,24 +31,25 @@ The repo has two responsibilities:
 ### Updating the Formula
 
 The Go updater (`src/main.go`) does the following:
-1. Calls the GitHub API to find the latest release of `witnsby/aws-sso-login`.
-2. Downloads the four platform binaries (`darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64`).
+1. Calls the GitHub API for the release named by `RELEASE_TAG`, or the latest release of `witnsby/aws-sso-login` when it is empty.
+2. Downloads the four platform binaries (`darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64`) and exits non-zero when the release or any binary is missing.
 3. Computes the SHA256 of each binary.
 4. Regenerates `Formula/aws-sso-login.rb` with the new version, URLs, and checksums.
 
 Run it locally:
 ```bash
-make run        # go run ./src/main.go
+make run                      # go run ./src/main.go, latest release
+RELEASE_TAG=v0.3.0 make run   # a specific release
 ```
 
 ### CI/CD
 
-`publish_release.yml` ("Fetch Release") triggers on every push to `main`, daily on a schedule, and on `workflow_dispatch`. It:
+`publish_release.yml` ("Fetch Release") triggers on every push to `main`, daily on a schedule, and on `workflow_dispatch` with an optional `tag` input. It:
 1. Checks out the repo.
 2. Runs `make run` (the Go updater).
 3. If the formula changed, commits and pushes it back to `main`; otherwise exits successfully without committing.
 
-The schedule is what picks up new upstream releases: tagging a release in `witnsby/aws-sso-login` does not trigger this repo. To publish a release immediately, run the workflow manually (`gh workflow run publish_release.yml -R witnsby/homebrew-aws-sso-login`).
+After publishing a release, `witnsby/aws-sso-login` dispatches this workflow with `tag=vX.Y.Z` (using its `HOMEBREW_TAP_TOKEN` secret). The schedule is the fallback when that dispatch did not run. To update by hand, run `gh workflow run publish_release.yml -R witnsby/homebrew-aws-sso-login [-f tag=vX.Y.Z]`.
 
 `build_release.yaml` ("Build Release") runs on pull requests to `main`: it installs dependencies, runs `make tests` and `make build`. It does not touch the formula.
 
